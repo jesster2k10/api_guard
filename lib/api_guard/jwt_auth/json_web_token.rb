@@ -51,6 +51,13 @@ module ApiGuard
         set_token_headers(access_token, refresh_token)
       end
 
+      # Revokes a refresh token
+      def revoke_refresh_token(refresh_token, resource = nil)
+        refresh_token.destroy
+        blacklist_token(resource) if ApiGuard.blacklist_token_after_refreshing
+        revoke_whitelisted_token(resource) if ApiGuard.remove_whitelist_after_refreshing
+      end
+
       # Set token details in response headers
       def set_token_headers(token, refresh_token = nil)
         response.headers['Access-Token'] = token

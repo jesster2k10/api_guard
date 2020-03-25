@@ -23,6 +23,9 @@ module ApiGuard
   mattr_accessor :blacklist_token_after_refreshing
   self.blacklist_token_after_refreshing = false
 
+  mattr_accessor :remove_whitelist_after_refreshing
+  self.remove_whitelist_after_refreshing = false
+
   mattr_accessor :api_guard_associations
   self.api_guard_associations = {}
 

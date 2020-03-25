@@ -16,4 +16,8 @@ ApiGuard.setup do |config|
   # Blacklist JWT access token after refreshing
   # Default: false
   # config.blacklist_token_after_refreshing = false
+
+  # Remove whitelisted JWT token after refreshing
+  # Default: false
+  # config.remove_whitelist_after_refreshing = false
 end

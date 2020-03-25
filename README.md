@@ -462,12 +462,15 @@ This gem offers two ways to revoke JWT tokens:
 
 ### Token blacklisting
 
+>**Note: If you are coming from an version 0.3.0 or below, you will need to add the jti column to your blacklisting table like so:**
+> `rails g migration AddJtiToBlacklistedTokens jti:string:uniq:index`
+
 To include token blacklisting in your application you need to create a table to store the refresh tokens. This will be used to blacklist a JWT access token from future use. The access token will be blacklisted on successful sign out of the resource.
 
 Use below command to create a model `RefeshToken` with columns to store the token and the user reference
 
 ```bash
-$ rails generate model blacklisted_token jti:string user:references expire_at:datetime
+$ rails generate model blacklisted_token jti:string:uniq:index user:references expire_at:datetime
 ```
 
 Then, run migration to create the `blacklisted_tokens` table
