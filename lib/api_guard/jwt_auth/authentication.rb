@@ -25,26 +25,27 @@ module ApiGuard
         @resource_name = resource_name
 
         @token = request.headers['Authorization']&.split('Bearer ')&.last
-        return render_error(401, message: I18n.t('api_guard.access_token.missing')) unless @token
+        return render_authenticate_error(message: I18n.t('api_guard.access_token.missing')) unless @token
 
         authenticate_token
 
         # Render error response only if no resource found and no previous render happened
-        render_error(401, message: I18n.t('api_guard.access_token.invalid')) if !current_resource && !performed?
+        render_authenticate_error(message: I18n.t('api_guard.access_token.invalid')) if !current_resource && !performed?
       rescue JWT::DecodeError => e
         if e.message == 'Signature has expired'
-          render_error(401, message: I18n.t('api_guard.access_token.expired'))
+          render_authenticate_error(message: I18n.t('api_guard.access_token.expired'))
         else
-          render_error(401, message: I18n.t('api_guard.access_token.invalid'))
+          render_authenticate_error(message: I18n.t('api_guard.access_token.invalid'))
         end
       end
 
       # Decode the JWT token
       # and don't verify token expiry for refresh token API request
-      def decode_token
+      def decode_token(token = @token)
         # TODO: Set token refresh controller dynamic
         verify_token = (controller_name != 'tokens' || action_name != 'create')
-        @decoded_token = decode(@token, verify_token)
+        @decoded_token = decode(token, verify_token)
+        @jti = @decoded_token.fetch(:jti, nil)
       end
 
       # Returns whether the JWT token is issued after the last password change
@@ -71,20 +72,52 @@ module ApiGuard
       # for accessing the authenticated resource
       def authenticate_token
         return unless decode_token && @decoded_token[:"#{@resource_name}_id"].present?
+        return if valid_token?
+
+        render_authenticate_error(message: I18n.t('api_guard.access_token.invalid'))
+      end
+
+      # Returns the token from the request header
+      def header_token
+        request.headers['Authorization']&.split('Bearer ')&.last
+      end
+
+      # Checks whether the JWT token provided in the Authorization header is valid
+      # and returns a boolean, if it is.
+      #
+      # Can be used when you don't want to render any error due to an bad token,
+      # useful for GraphQL as you would want your resolvers to handle authentication.
+      def valid_token?
+        return unless decode_token(header_token) && @decoded_token[:"#{@resource_name}_id"].present?
 
         resource = @resource_name.classify.constantize.find_by(id: @decoded_token[:"#{@resource_name}_id"])
-
         define_current_resource_accessors(resource)
 
-        return if current_resource && valid_issued_at? && !blacklisted?
+        return false unless valid_resource?
 
-        render_error(401, message: I18n.t('api_guard.access_token.invalid'))
+        whitelist_token
+        true
       end
 
       def current_resource
         return unless respond_to?("current_#{@resource_name}")
 
         public_send("current_#{@resource_name}")
+      end
+
+      # A method that renders the authentication error
+      #
+      # Can be overwritten in order to return nothing, if you are dealing with GraphQL (you would likely)
+      # want to return nothing and handle authentication errors in your resolvers, or to return a
+      # custom formatted response.
+      def render_authenticate_error(message:)
+        render_error(401, message: message)
+      end
+
+      private
+
+      def valid_resource?
+        current_resource && valid_issued_at? && !blacklisted? && whitelisted?
       end
     end
   end
