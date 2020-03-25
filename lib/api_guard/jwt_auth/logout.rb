@@ -4,7 +4,7 @@ module ApiGuard
   module JwtAuth
     # A common module to handle logout functions
     module Logout
-      def logout!(resource = nil)
+      def logout!(resource = current_resource)
         blacklist_token(resource)
         revoke_whitelisted_token(resource)
       end

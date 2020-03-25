@@ -21,13 +21,13 @@ module ApiGuard
       def whitelisted?
         return true unless token_whitelisting_enabled?(current_resource)
 
-        whitelisted_tokens_for(current_resource).exists(jti: @jti)
+        whitelisted_tokens_for(current_resource).exists?(jti: @jti)
       end
 
-      def whitelist_token
-        return unless token_whitelisting_enabled?(current_resource)
+      def whitelist_token(resource = current_resource)
+        return unless token_whitelisting_enabled?(resource)
 
-        whitelisted_tokens_for(current_resource).create(jti: @jti, expire_at: @decoded_token[:exp].utc)
+        whitelisted_tokens_for(resource).create(jti: @jti, exp: @payload[:exp])
       end
 
       def revoke_whitelisted_token(resource = current_resource)

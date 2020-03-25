@@ -93,10 +93,7 @@ module ApiGuard
         resource = @resource_name.classify.constantize.find_by(id: @decoded_token[:"#{@resource_name}_id"])
         define_current_resource_accessors(resource)
 
-        return false unless valid_resource?
-
-        whitelist_token
-        true
+        valid_resource?
       end
 
       def current_resource

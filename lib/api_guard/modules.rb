@@ -5,6 +5,8 @@ require 'api_guard/jwt_auth/json_web_token'
 require 'api_guard/jwt_auth/authentication'
 require 'api_guard/jwt_auth/refresh_jwt_token'
 require 'api_guard/jwt_auth/blacklist_token'
+require 'api_guard/jwt_auth/whitelist_token'
+require 'api_guard/jwt_auth/logout'
 require 'api_guard/response_formatters/renderer'
 require 'api_guard/models/concerns'
 

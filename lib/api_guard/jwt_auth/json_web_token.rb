@@ -35,12 +35,15 @@ module ApiGuard
       #
       # This creates expired JWT token if the argument 'expired_token' is true which can be used for testing.
       def jwt_and_refresh_token(resource, resource_name, expired_token = false)
-        access_token = encode(
+        @jti = SecureRandom.hex
+        @payload = {
           "#{resource_name}_id": resource.id,
           exp: expired_token ? token_issued_at : token_expire_at,
           iat: token_issued_at,
-          jti: SecureRandom.hex
-        )
+          jti: @jti
+        }
+        access_token = encode(@payload)
+        whitelist_token(resource)
 
         [access_token, new_refresh_token(resource)]
       end
