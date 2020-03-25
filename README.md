@@ -14,31 +14,39 @@ for cryptographic signing.
 
 ## Table of Contents
 
-* [Installation](#installation)
-* [Getting Started](#getting-started)
-    * [Creating User model](#creating-user-model)
-    * [Configuring Routes](#configuring-routes)
-    * [Registration](#registration)
-    * [Sign In (Getting JWT access token)](#sign-in-getting-jwt-access-token)
-    * [Authenticate API Request](#authenticate-api-request)
-    * [Refresh access token](#refresh-access-token)
-    * [Change password](#change-password)
-    * [Sign out](#sign-out)
-    * [Delete Account](#delete-account)
-* [Configuration](#configuration)
-    * [Default configuration](#default-configuration)
-    * [Access token validity](#access-token-validity)
-    * [Access token signing secret](#access-token-signing-secret)
-    * [Invalidate tokens on password change](#invalidate-tokens-on-password-change)
-    * [Token refreshing](#token-refreshing)
-    * [Token blacklisting](#token-blacklisting)
-* [Overriding defaults](#overriding-defaults)
-    * [Controllers](#controllers)
-    * [Routes](#routes)
-    * [Customizing / translating response messages using I18n](#customizing--translating-response-messages-using-i18n)
-* [Testing](#testing)
-* [Contributing](#contributing)
-* [License](#license)
+- [API Guard](#api-guard)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Getting Started](#getting-started)
+    - [Creating User model](#creating-user-model)
+    - [Configuring Routes](#configuring-routes)
+    - [Registration](#registration)
+    - [Sign In (Getting JWT access token)](#sign-in-getting-jwt-access-token)
+    - [Authenticate API Request](#authenticate-api-request)
+    - [Refresh access token](#refresh-access-token)
+    - [Change password](#change-password)
+    - [Sign out](#sign-out)
+    - [Delete account](#delete-account)
+  - [Configuration](#configuration)
+    - [Default configuration](#default-configuration)
+    - [Access token validity](#access-token-validity)
+    - [Access token signing secret](#access-token-signing-secret)
+    - [Invalidate tokens on password change](#invalidate-tokens-on-password-change)
+    - [Token refreshing](#token-refreshing)
+  - [Token Revocation Strategies](#token-revocation-strategies)
+    - [Token blacklisting](#token-blacklisting)
+    - [Token Whitelisting](#token-whitelisting)
+  - [Overriding defaults](#overriding-defaults)
+    - [Controllers](#controllers)
+    - [Routes](#routes)
+    - [Customizing / translating response messages using I18n](#customizing--translating-response-messages-using-i18n)
+  - [GraphQL](#graphql)
+          - [Sign In Mutation](#sign-in-mutation)
+          - [Sign Out Mutation](#sign-out-mutation)
+          - [Token Refresh](#token-refresh)
+  - [Testing](#testing)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 
 ## Installation
@@ -440,22 +448,26 @@ class User < ApplicationRecord
 end
 ```
 
-If you also have token blacklisting enabled you need to specify both associations as below
+If you also have token blacklisting or whitelisting enabled you need to specify both associations as below
 
 ```ruby
-api_guard_associations refresh_token: 'refresh_tokens', blacklisted_token: 'blacklisted_tokens'
+api_guard_associations refresh_token: 'refresh_tokens', blacklisted_token: 'blacklisted_tokens', whitelisted_token: 'whitelisted_tokens'
 ```
+
+## Token Revocation Strategies
+
+This gem offers two ways to revoke JWT tokens:
+- Blacklisting
+- Whitelisting
 
 ### Token blacklisting
 
-To include token blacklisting in your application you need to create a table to store the refresh tokens. This will be 
-used to blacklist a JWT access token from future use. The access token will be blacklisted on successful sign out of the 
-resource.
+To include token blacklisting in your application you need to create a table to store the refresh tokens. This will be used to blacklist a JWT access token from future use. The access token will be blacklisted on successful sign out of the resource.
 
 Use below command to create a model `RefeshToken` with columns to store the token and the user reference
 
 ```bash
-$ rails generate model blacklisted_token token:string user:references expire_at:datetime
+$ rails generate model blacklisted_token jti:string user:references expire_at:datetime
 ```
 
 Then, run migration to create the `blacklisted_tokens` table
@@ -493,6 +505,51 @@ configure it in API Guard initializer as below,
 
 ```ruby
 config.blacklist_token_after_refreshing = true
+```
+
+### Token Whitelisting
+
+To include token whitelisting, you must create a table that will store the jti of all the current active & valid tokens which will be used in authorization.
+
+Use the command below to generate a `WhitelistedToken` model that will store the jti, expiry and a reference to the user.
+
+```bash
+$ rails g model WhitelistedToken jti:string:uniq:index user:references exp:datetime
+```
+
+and 
+
+```bash
+$ rake db:migrate
+```
+
+>**Note:** Replace `user` in the above command with your model name if your model is not User.
+
+After creating the model and table for `WhitelistedToken` you need to configure the association in the resource model using `api_guard_associations` method, like so:
+
+```ruby
+class User < ApplicationRecord
+  api_guard_associations whitelisted_tokens: :whitelisted_tokens
+  has_many :whitelisted_tokens, dependent: :delete_all
+end
+```
+
+If you want to include refreshing strategies or a blacklist alongside, you would need to use the following line instead:
+
+```ruby
+api_guard_associations refresh_token: :refresh_tokens, blacklisted_token: :whitelisted_tokens
+```
+
+In order to keep the whitelist clean, you can create a CRON job to run a task daily that deletes the whitelisted tokens that are expired i.e. `exp < DateTime.now`.
+
+**Remove Whitelist after refreshing token**
+
+By default, any whitelisted tokens will not be removed after refreshing the access granting access to any clients with the whitelisted tokens.
+
+This setting can be changed like so:
+
+```ruby
+config.remove_whitelist_after_refreshing = true # default is false
 ```
 
 ## Overriding defaults
@@ -579,6 +636,112 @@ en:
 
 You can find the complete list of available keys in this file:
 https://github.com/Gokul595/api_guard/blob/master/config/locales/en.yml
+
+## GraphQL
+
+This gem should work with the [graphql-ruby](https://graphql-ruby.org) without much extra effort. You can see below for an example on how to integrate it:
+
+###### graphql_controller.rb
+
+```ruby
+class GraphqlController < ApplicationController
+  include ApiGuard::JwtAuth::Authentication
+
+  before_action :authenticate
+
+  def execute
+    context = {
+      controller: self,
+      current_user: @current_user,
+    }
+
+    #...
+  end
+
+  private
+
+  def authenticate
+    # This method checks for the JWT token in the authentication headers
+    # and sets the current resource if the token is valid.
+    # It does not render any feedback so it's perfect for use in Graphql
+    valid_token?
+  end
+end
+```
+
+###### Sign In Mutation
+
+```ruby
+class SignIn < GraphQL::Schema::RelayClassicMutation
+  include ApiGuard::JwtAuth::RefreshJwtToken
+  include ApiGuard::JwtAuth::JsonWebToken
+
+  argument :email, String, required: true
+  argument :password, String, required: true
+
+  field :user, UserType, null: true
+  field :access_token, String, null: true
+  field :refresh_token, String, null: true
+  field :error, String, null: true
+
+  def resolve(email:, password:)
+    user = User.authenticate(email, password)
+
+    if user.present?
+      access_token, refresh_token = jwt_and_refresh_token(user, 'user')
+
+      { user: user, access_token: access_token, refresh_token: refresh_token }
+    else
+      # Assumes you are using Devise
+      error_message = I18n.t(
+        "devise.failure.invalid",
+        authentication_keys: User.authentication_keys.join("/")
+      )
+
+      { error: error_message }
+    end
+  end
+end
+```
+
+###### Sign Out Mutation
+
+```ruby
+class SignOut < GraphQL::Schema::RelayClassicMutation
+  include ApiGuard::JwtAuth::Logout
+
+  field :signed_out, Boolean, null: false
+
+  def resolve
+    current_user = context[:current_user]
+    return { signed_out: false } unless current_user.present?
+
+    logout! current_user
+    { signed_out: true }
+  end
+end
+```
+
+
+###### Token Refresh
+
+```ruby
+class RefreshAccessToken < GraphQL::Schema::RelayClassicMutation
+  include ApiGuard::JwtAuth::JsonWebToken
+
+  field :refresh_token, String, null: true
+  field :access_token, String, null: true
+
+  def resolve
+    current_user = context[:current_user]
+    return { refresh_token: nil, access_token: nil } unless current_user.present?
+
+    access_token, refresh_token = jwt_and_refresh_token(user, 'user')
+    { access_token: access_token, refresh_token: refresh_token }
+  end
+end
+```
+
 
 ## Testing
 
