@@ -16,6 +16,8 @@ module ApiGuard
       include ApiGuard::JwtAuth::Authentication
       include ApiGuard::JwtAuth::RefreshJwtToken
       include ApiGuard::JwtAuth::BlacklistToken
+      include ApiGuard::JwtAuth::WhitelistToken
+      include ApiGuard::JwtAuth::Logout
       include ApiGuard::ResponseFormatters::Renderer
     end
 
