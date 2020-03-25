@@ -21,14 +21,14 @@ module ApiGuard
       def blacklisted?
         return false unless token_blacklisting_enabled?(current_resource)
 
-        blacklisted_tokens_for(current_resource).exists?(token: @token)
+        blacklisted_tokens_for(current_resource).exists?(jti: @jti)
       end
 
       # Blacklist the current JWT token from future access
-      def blacklist_token
-        return unless token_blacklisting_enabled?(current_resource)
+      def blacklist_token(resource = current_resource)
+        return unless token_blacklisting_enabled?(resource)
 
-        blacklisted_tokens_for(current_resource).create(token: @token, expire_at: Time.at(@decoded_token[:exp]).utc)
+        blacklisted_tokens_for(resource).create(jti: @jti, expire_at: Time.at(@decoded_token[:exp]).utc)
       end
     end
   end
