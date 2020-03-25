@@ -38,7 +38,8 @@ module ApiGuard
         access_token = encode(
           "#{resource_name}_id": resource.id,
           exp: expired_token ? token_issued_at : token_expire_at,
-          iat: token_issued_at
+          iat: token_issued_at,
+          jti: SecureRandom.hex
         )
 
         [access_token, new_refresh_token(resource)]
