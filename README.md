@@ -41,9 +41,9 @@ for cryptographic signing.
     - [Routes](#routes)
     - [Customizing / translating response messages using I18n](#customizing--translating-response-messages-using-i18n)
   - [GraphQL](#graphql)
-          - [Sign In Mutation](#sign-in-mutation)
-          - [Sign Out Mutation](#sign-out-mutation)
-          - [Token Refresh](#token-refresh)
+        - [Sign In Mutation](#sign-in-mutation)
+        - [Sign Out Mutation](#sign-out-mutation)
+        - [Token Refresh](#token-refresh)
   - [Testing](#testing)
   - [Contributing](#contributing)
   - [License](#license)
@@ -641,7 +641,7 @@ https://github.com/Gokul595/api_guard/blob/master/config/locales/en.yml
 
 This gem should work with the [graphql-ruby](https://graphql-ruby.org) without much extra effort. You can see below for an example on how to integrate it:
 
-###### graphql_controller.rb
+#### graphql_controller.rb
 
 ```ruby
 class GraphqlController < ApplicationController
@@ -669,7 +669,7 @@ class GraphqlController < ApplicationController
 end
 ```
 
-###### Sign In Mutation
+##### Sign In Mutation
 
 ```ruby
 class SignIn < GraphQL::Schema::RelayClassicMutation
@@ -704,7 +704,7 @@ class SignIn < GraphQL::Schema::RelayClassicMutation
 end
 ```
 
-###### Sign Out Mutation
+##### Sign Out Mutation
 
 ```ruby
 class SignOut < GraphQL::Schema::RelayClassicMutation
@@ -722,8 +722,7 @@ class SignOut < GraphQL::Schema::RelayClassicMutation
 end
 ```
 
-
-###### Token Refresh
+##### Token Refresh
 
 ```ruby
 class RefreshAccessToken < GraphQL::Schema::RelayClassicMutation
