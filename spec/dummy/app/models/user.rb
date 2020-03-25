@@ -3,7 +3,8 @@
 class User < ApplicationRecord
   has_secure_password
 
-  api_guard_associations refresh_token: 'refresh_tokens', blacklisted_token: 'blacklisted_tokens'
+  api_guard_associations refresh_token: 'refresh_tokens', blacklisted_token: 'blacklisted_tokens',
+                         whitelisted_token: 'whitelisted_tokens'
 
   # == Validations =====================================================================================================
   validates :email, presence: true
@@ -12,5 +13,6 @@ class User < ApplicationRecord
   # == Relationships ===================================================================================================
   has_many :refresh_tokens, dependent: :delete_all
   has_many :blacklisted_tokens, dependent: :delete_all
+  has_many :whitelisted_tokens, dependent: :delete_all
   has_many :posts, dependent: :delete_all
 end
